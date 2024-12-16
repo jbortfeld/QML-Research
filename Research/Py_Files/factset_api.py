@@ -214,7 +214,7 @@ def batch_fundamental_download(fsym_list:list,
 
 
         else:
-            print('--  No errors after first pass')
+            print('--  No errors after second pass')
             print('-- done')
             return []
 
