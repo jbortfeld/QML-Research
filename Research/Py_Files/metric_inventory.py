@@ -127,6 +127,13 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                      'st_debt_to_current_liabilities': {'name': 'ST Debt to Current Liabilities', 'type': 'numeric', 'category': 'liquidity'},
                      'st_debt_to_st_debt': {'name': 'ST Debt to ST Debt', 'type': 'numeric', 'category': 'liquidity'},
                      'st_debt_to_total_debt': {'name': 'ST Debt to Total Debt', 'type': 'numeric', 'category': 'liquidity'},
+
+                     # VOLATILITY
+                     'net_income_vol': {'name': 'Net Income Volatility', 'type': 'numeric', 'category': 'volatility'},
+                     'sales_vol': {'name': 'Sales Volatility', 'type': 'numeric', 'category': 'volatility'},
+                     'ebitda_vol': {'name': 'EBITDA Volatility', 'type': 'numeric', 'category': 'volatility'},
+                     'ebit_vol': {'name': 'EBIT Volatility', 'type': 'numeric', 'category': 'volatility'},
+
                      
                      }
 
@@ -150,7 +157,8 @@ leverage_ratio_list = []
 coverage_ratio_list = []
 profitability_ratio_list = []
 liquidity_ratio_list = []
-ratio_dict = {c: [] for c in ['leverage', 'coverage', 'profitability', 'liquidity']}
+volatility_ratio_list = []
+ratio_dict = {c: [] for c in ['leverage', 'coverage', 'profitability', 'liquidity', 'volatility']}
 
 for m in display_name_dict.keys():
 
@@ -173,4 +181,8 @@ for m in display_name_dict.keys():
         liquidity_ratio_list.append(m)
         ratio_dict['liquidity'].append(m)
 
-all_ratios_list = leverage_ratio_list + coverage_ratio_list + profitability_ratio_list + liquidity_ratio_list
+    if display_name_dict[m]['category'] == 'volatility':
+        volatility_ratio_list.append(m)
+        ratio_dict['volatility'].append(m)
+
+all_ratios_list = leverage_ratio_list + coverage_ratio_list + profitability_ratio_list + liquidity_ratio_list + volatility_ratio_list

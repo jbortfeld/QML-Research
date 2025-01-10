@@ -10,6 +10,7 @@ fundamental_fields = [
     'ff_assets', 'ff_cash_st', 'ff_assets_curr', 'ff_intang', 'ff_gw', 'ff_ppe_gross',
     'ff_debt_lt', 'ff_debt_st', 'ff_pens_liabs_unfunded', 'ff_liabs_curr', 'ff_liabs',
     'ff_com_eq', 'ff_pfd_stk', 'ff_min_int_accum', 'FF_COM_SHS_OUT',
+    'ff_eq_tot',
 
 
     # point-in-time vars
@@ -25,4 +26,4 @@ flow_var_list = ['ff_ebitda_oper', 'ff_ebit_oper', 'ff_net_inc',
 
 stock_var_list = ['ff_assets', 'ff_cash_st', 'ff_assets_curr', 'ff_intang', 'ff_gw', 'ff_ppe_gross',
                   'ff_debt_lt', 'ff_debt_st', 'ff_pens_liabs_unfunded', 'ff_liabs_curr', 'ff_liabs',
-                  'ff_com_eq', 'ff_pfd_stk', 'ff_min_int_accum']
+                  'ff_com_eq', 'ff_pfd_stk', 'ff_min_int_accum', 'ff_eq_tot']

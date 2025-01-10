@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 import tqdm
 import os
+import datetime
+import re
+
 
 def consolidate_local_data(folder_path:str):
 
@@ -10,7 +13,8 @@ def consolidate_local_data(folder_path:str):
 
     collection = []
     for file in tqdm.tqdm(os.listdir(folder_path)):
-        df = pd.read_csv(file)
+        
+        df = pd.read_csv(folder_path + file)
         collection.append(df)
     
     df = pd.concat(collection)
@@ -64,9 +68,18 @@ def preprocess_factset_fundamentals(data, verbose=False):
         print(validation)
         print('duplicate fsym_id-metric-date found')
         mask = df.duplicated(subset=['fsymId', 'metric', 'fiscalYear', 'fiscalPeriod'], keep=False)
-        print(df[mask])
         df[mask].to_csv('/Users/joeybortfeld/Documents/CreditGradients Data/temp.csv', index=False)
-        fasdfsdafasdfasdf
+        
+
+        # we expect WC6L93-R to have duplicate fiscalYear, fiscalPeriod due to a change in reporting period
+        duplicate_fsyms = df[mask]['fsymId'].unique()
+        print('duplicate fsyms:', duplicate_fsyms)
+        
+
+        # check for duplicate fsym_id-metric-date
+        df = df.sort_values(by=['fsymId', 'metric', 'fiscalYear', 'fiscalPeriod', 'fiscalEndDate'])
+        df = df.drop_duplicates(subset=['fsymId', 'metric', 'fiscalYear', 'fiscalPeriod'], keep='last')
+
 
     # check for multiple publication date
     df['epsReportDate_min'] = df.groupby(['fsymId', 'fiscalEndDate'])['epsReportDate'].transform(lambda x: x.min())
@@ -307,7 +320,7 @@ def build_qml_model_ratios(data:pd.DataFrame, verbose:bool=False):
     # these can plausibly be negative in the data so we don't set a floor
     # but we do a replacement to prevent division by zero in ratios
     df['ebitda_ltm_floor'] = df['ff_ebitda_oper_ltm'].replace([0], .0001)
-    df['net_debt_floor'] = df['net_debt'].replace([0], .0001)   
+    df['net_debt_floor'] = df['net_debt'].replace([0], .0001)
 
     # 0. size ratios
     # convert assets to USD
@@ -409,9 +422,9 @@ def calculate_earnings_volatility(data:pd.DataFrame, freq:str='qf'):
     '''
 
     df = data.copy()
-    df = df.sort_values(by=['ticker', 'ff_fiscal_date'])
+    df = df.sort_values(by=['fsym_id', 'fiscal_end_date'])
     df = df.reset_index(drop=True)
-    df = df[['ticker', 'ff_fiscal_date', 
+    df = df[['fsym_id', 'fiscal_end_date', 
              f'ff_net_inc_{freq}_ltm', f'ff_ebitda_oper_{freq}_ltm', 
              f'ff_ebit_oper_{freq}_ltm', f'ff_sales_{freq}_ltm']]
 
@@ -422,7 +435,7 @@ def calculate_earnings_volatility(data:pd.DataFrame, freq:str='qf'):
               ('sales', f'ff_sales_{freq}_ltm')]:
         
         # calculate perior-over-period changes
-        df['earnings_change'] = df.groupby(by='ticker')[m[1]].transform(lambda x: x.pct_change())
+        df['earnings_change'] = df.groupby(by='fsym_id')[m[1]].transform(lambda x: x.pct_change())
 
         # apply a cap/floor to period-over-period changes in earnings
         # in order to smooth outliers
@@ -432,11 +445,11 @@ def calculate_earnings_volatility(data:pd.DataFrame, freq:str='qf'):
         freq_to_window = {'qf':12, 'saf': 6}
         annualization_factor = {'qf':4, 'saf':2}
         window = freq_to_window[freq]
-        this_vol = df.groupby(by='ticker', as_index=False)['earnings_change'].rolling(window=window, min_periods=window).std()
+        this_vol = df.groupby(by='fsym_id', as_index=False)['earnings_change'].rolling(window=window, min_periods=window).std()
         df[f'{m[0]}_vol_{freq}'] = this_vol['earnings_change']
         df[f'{m[0]}_vol_{freq}'] = df[f'{m[0]}_vol_{freq}'] * np.sqrt(annualization_factor[freq])
 
-    df = df[['ticker', 'ff_fiscal_date', 
+    df = df[['fsym_id', 'fiscal_end_date', 
              f'net_income_vol_{freq}', f'ebitda_vol_{freq}', 
              f'ebit_vol_{freq}', f'sales_vol_{freq}']]
 
