@@ -12,13 +12,32 @@ def consolidate_local_data(folder_path:str):
     print('-- folder path:', folder_path)
 
     collection = []
+    error_list = []
     for file in tqdm.tqdm(os.listdir(folder_path)):
         
-        df = pd.read_csv(folder_path + file)
-        collection.append(df)
-    
+        try:
+            df = pd.read_csv(folder_path + file)
+            collection.append(df)
+        except:
+            print(f'error reading {file}')
+            error_list.append(file)
     df = pd.concat(collection)
-    return df
+    return df, error_list
+
+def consolidate_selected_files(file_list):
+    collection = []
+    error_list = []
+
+    for file in tqdm.tqdm(file_list):
+
+        try:
+            df = pd.read_csv(file)
+            collection_annual.append(df)
+        except:
+            error_list.append(file)
+
+    df = pd.concat(collection)
+    return df, error_list
 
 def consolidate_s3_data(folder_path:str):
 
@@ -136,10 +155,12 @@ def format_annual_data(data:pd.DataFrame, flow_vars:list, stock_vars:list, verbo
         print('start format_annual_data()')
 
     df = data.copy()
+    df['fiscal_end_date'] = pd.to_datetime(df['fiscal_end_date'])
     for v in flow_vars:
         df = df.rename(columns={v:f'{v}_af'})
     for v in stock_vars:
         df = df.rename(columns={v:f'{v}_af'})
+
 
     return df   
 
@@ -153,6 +174,7 @@ def format_quarterly_data(data:pd.DataFrame, flow_vars:list, stock_vars:list, ve
         print('start format_quarterly_data()')
 
     df = data.copy()
+    df['fiscal_end_date'] = pd.to_datetime(df['fiscal_end_date'])
     for v in flow_vars:
         df = df.rename(columns={v:f'{v}_qf'})
     for v in stock_vars:
@@ -188,6 +210,7 @@ def format_semi_annual_data(data:pd.DataFrame, flow_vars:list, stock_vars:list, 
         print('start format_semi_annual_data()')
 
     df = data.copy()
+    df['fiscal_end_date'] = pd.to_datetime(df['fiscal_end_date'])
     for v in flow_vars:
         df = df.rename(columns={v:f'{v}_saf'})
     for v in stock_vars:
@@ -215,6 +238,28 @@ def format_semi_annual_data(data:pd.DataFrame, flow_vars:list, stock_vars:list, 
         df.loc[~valid_dates_mask, f'{c}_ltm'] = np.nan
 
     return df
+
+def format_assets_in_usd_data(data_annual:pd.DataFrame, data_semi_annual:pd.DataFrame, cleanup:bool=True):
+
+    mask = data_annual['currency'] != 'USD'
+    assert mask.sum() == 0, 'annual data contains non-USD currencies'
+    df1 = data_annual[['fsym_id', 'fiscal_end_date', 'ff_assets']]
+    df1 = df1.rename(columns={'ff_assets': 'ff_assets_in_usd_af'})
+   
+    mask = data_semi_annual['currency'] != 'USD'
+    assert mask.sum() == 0, 'semi-annual data contains non-USD currencies'
+    df2 = data_semi_annual[['fsym_id', 'fiscal_end_date', 'ff_assets']]
+    df2 = df2.rename(columns={'ff_assets': 'ff_assets_in_usd_saf'})
+
+    df = df1.merge(df2, on=['fsym_id', 'fiscal_end_date'], how='outer')
+    df['fiscal_end_date'] = pd.to_datetime(df['fiscal_end_date'])
+    df['ff_assets_in_usd'] = df['ff_assets_in_usd_af'].fillna(df['ff_assets_in_usd_saf'])
+
+    if cleanup:
+        df = df.drop(columns=['ff_assets_in_usd_af', 'ff_assets_in_usd_saf'], axis=1)
+
+    return df
+
 
 
 def merge_quarterly_semi_and_annual(quarterly:pd.DataFrame, semi_annual:pd.DataFrame, annual:pd.DataFrame, 

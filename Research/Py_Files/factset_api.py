@@ -6,6 +6,12 @@ import requests
 import datetime
 import re
 import os
+import tqdm
+import time
+
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 flow_var_list = ['ff_ebitda_oper', 'ff_ebit_oper', 'ff_net_inc', 
                'ff_sales', 'ff_cogs',
                'ff_int_exp_net', 'ff_capex',
@@ -45,7 +51,6 @@ def load_universe_dict(data:pd.DataFrame):
         temp = df[df['max_assets_in_usd'] > this_threshold[1]].copy()
         temp = temp[temp['fsym_id'] != '@NA']
         temp = temp['fsym_id'].unique()
-        temp = sorted(temp)
         universe_dict[this_threshold[0]] = temp
 
     print('-- universe counts:')
@@ -95,6 +100,7 @@ def download_fundamentals(id_list:list=['MH33D6-R',],
                                             verify= False)
     if verbose:
         print('HTTP Status: {}'.format(fundamentals_response.status_code))
+        print(fundamentals_response.text)
 
     # create a dataframe from POST request, show dataframe properties
     fundamentals_data = json.loads(fundamentals_response.text)
@@ -246,15 +252,15 @@ def get_stock_prices(id_list:str=['MH33D6-R'],
                      start_date:str='2006-01-03', 
                      end_date:str='2024-12-31', 
                      frequency:str='D',
-                     split:str='UNSPLIT',
+                     split:str='SPLIT',
                      verbose:bool=False,
                      authorization=None):
 
     '''
     Get stock prices for a given ticker.
 
-    Split is either SPLIT, SPLIT_SPINOFF', UNSPLIT. For the purpose of constructing historical market capitaliation use
-    UNSPLIT to be on a like-for-like basis with shares outsanding as reported in the financial statements. 
+    Split is either SPLIT, SPLIT_SPINOFF', UNSPLIT. use SPLIT to be consistent with the shares outstanding API which is split adjusted. But if
+    you are using financial statement data then those share counts would be UNSPLIT. 
     '''
 
     prices_endpoint = 'https://api.factset.com/content/factset-global-prices/v1/prices'
@@ -347,6 +353,137 @@ def get_stock_returns(id_list:str=['MH33D6-R'],
         returns_df = pd.DataFrame(returns_data['data'])
         return [returns_response.status_code, returns_df]
 
+def batch_get_stock_data(metric:str='prices', 
+                        fsym_list:list=['MH33D6-R'], 
+                        start_date:str='2006-01-03', 
+                        end_date:str='2024-12-31', 
+                        starts_dict:dict=None,
+                        frequency:str='D',
+                        verbose:bool=False,
+                        skip_if_done:bool=True,
+                        output_folder:str='/Users/joeybortfeld/Documents/QML Solutions Data/factset_data/factset_prices/prices/',
+                        authorization=None):
+    
+    assert metric in ['prices', 'returns'], 'error: metric must be either prices or returns'
+
+    # 1. screen the list of fsym_ids to see if they are already in the output folder
+    company_set = fsym_list
+    print('-- original fsym_id count:', len(fsym_list))
+
+
+    # prescreen to see if the fsym_id is already in the output folder
+    if skip_if_done:
+        print('--skipping files that are already done')
+        output_files = os.listdir(output_folder)
+        print('--file count in output folder:', len(output_files))
+        output_files = [e.replace('.csv', '') for e in output_files]    
+        company_set = [e for e in company_set if e not in output_files]
+
+        print('--new company set size when skipping:', len(company_set))
+
+    # 2. loop through fsym_ids and download data
+    error_list = []
+    start_time = time.time()
+    print('-- start download')
+
+    m_dict = {'prices': 'price', 'returns': 'totalReturn', 'shares': 'totalOutstanding'}    
+    m = m_dict[metric]
+
+    for this_fsym in tqdm.tqdm(company_set):
+
+        if metric == 'prices':
+            status, df = get_stock_prices(id_list=[this_fsym], 
+                                        field_list=["price", "volume", "tradeCount"], 
+                                        start_date=start_date, 
+                                        end_date=end_date, 
+                                        frequency=frequency,
+                                        split='SPLIT',
+                                        verbose=False,
+                                        authorization=authorization)
+            
+            
+        elif metric == 'returns':
+            status, df = get_stock_returns(id_list=[this_fsym], 
+                                        start_date=start_date, 
+                                        end_date=end_date, 
+                                        frequency=frequency,
+                                        verbose=False,
+                                        authorization=authorization)
+            
+        try:
+            # if successful status response, check if data is present
+            if m in df.columns:
+
+                if status == 200:
+                    if df[m].count() > 0:
+                        df.to_csv(output_folder + f'{this_fsym}.csv', index=False)
+                    else:
+                        error_list.append(this_fsym)
+                else:
+                    error_list.append(this_fsym)
+
+            # if unsuccessful status response, add to error list
+            else:
+                error_list.append(this_fsym)
+        except:
+            error_list.append(this_fsym)
+        
+        
+    # retry failed downloads
+    if len(error_list) > 0:
+        print('-- retrying failed downloads:', len(error_list))
+        error_list2 = []
+        for this_fsym in tqdm.tqdm(error_list):
+            if metric == 'prices':
+                status, df = get_stock_prices(id_list=[this_fsym], 
+                                            field_list=["price", "volume", "tradeCount"], 
+                                            start_date=start_date, 
+                                            end_date=end_date, 
+                                            frequency=frequency,
+                                            split='UNSPLIT',
+                                            verbose=False,
+                                            authorization=authorization)
+            
+            
+            elif metric == 'returns':
+                status, df = get_stock_returns(id_list=[this_fsym], 
+                                            start_date=start_date, 
+                                            end_date=end_date, 
+                                            frequency=frequency,
+                                            verbose=False,
+                                            authorization=authorization)
+            try:
+                if m in df.columns:
+                    if status == 200:
+                        if df[m].count() > 0:
+                            df.to_csv(output_folder + f'{this_fsym}.csv', index=False)
+                        else:
+                            error_list2.append(this_fsym)
+                    else:
+                        error_list2.append(this_fsym)
+                else:
+                    error_list2.append(this_fsym)
+            except:
+                error_list2.append(this_fsym)
+
+        print('-- done second download attempts')
+        print('-- error count:', len(error_list2))
+        print('-- done in {}m'.format((time.time() - start_time) / 60))
+
+        return error_list2
+
+    print('-- done first download attempts')
+    print('-- error count:', len(error_list))
+    print('-- done in {}m'.format((time.time() - start_time) / 60))
+    return error_list
+
+            
+
+
+    print('-- done')
+    print('-- error count:', len(error_list))
+    print('-- done in {}m'.format((time.time() - start_time) / 60))
+    
 
 
 def get_shares_outanding(id_list:str=['MH33D6-R'], 
@@ -402,6 +539,84 @@ def get_shares_outanding(id_list:str=['MH33D6-R'],
         shares_data = json.loads(shares_response.text)
         shares_df = pd.DataFrame(shares_data['data'])
         return [shares_response.status_code, shares_df]
+
+def batch_get_shares_outanding(fsym_list:list=['MH33D6-R'], 
+                              start_date_dict:dict=None, 
+                              end_date:str='2024-12-31', 
+                              frequency:str='M',
+                              verbose:bool=False,
+                              skip_if_done:bool=True,
+                              output_folder:str='/Users/joeybortfeld/Documents/QML Solutions Data/factset_data/factset_equity/shares/',
+                              authorization=None):
+    
+
+    assert start_date_dict is not None, 'error: start_date_dict must be provided'
+
+    company_set = fsym_list
+    print('-- original fsym_id count:', len(fsym_list))
+
+    # prescreen to see if the fsym_id is already in the output folder
+    if skip_if_done:
+        print('--skipping files that are already done')
+        output_files = os.listdir(output_folder)
+        print('--file count in output folder:', len(output_files))
+        output_files = [e.replace('.csv', '') for e in output_files]    
+        company_set = [e for e in company_set if e not in output_files]
+
+        print('--new company set size when skipping:', len(company_set))
+
+    error_list = []
+    for fsym in tqdm.tqdm(company_set):
+        status, df = get_shares_outanding(id_list=[fsym], 
+                                        start_date=start_date_dict[fsym], 
+                                        end_date=end_date, 
+                                        frequency=frequency,
+                                        verbose=False,
+                                        authorization=authorization)
+        # if the request response indicates success, proceed to check the data
+        if status==200:
+            
+            # check to see if share data is present
+            if 'totalOutstanding' in df.columns:
+                # if share data is present, save to csv
+                df.to_csv(output_folder + f'{fsym}.csv', index=False)
+            else:
+
+               
+                # try to increment the start date forward by one month at a time
+                # (a start date prior to the first available data will return a dataframe with no column for totalOutstanding)
+                found = False
+                for i in range(12):
+
+                    # increment the start date by n months
+                    _start_date = pd.to_datetime(start_date_dict[fsym]) + pd.DateOffset(months=i)
+                    _start_date = _start_date.to_period('M').to_timestamp('M')
+                    _start_date = _start_date.strftime('%Y-%m-%d')
+
+                    status, df = get_shares_outanding(id_list=[fsym], 
+                                                    start_date=_start_date, 
+                                                    end_date=end_date, 
+                                                    frequency=frequency,
+                                                    verbose=False,
+                                                    authorization=authorization)
+                    
+                    if status == 200:
+                        if 'totalOutstanding' in df.columns:
+                            df.to_csv(output_folder + f'{fsym}.csv', index=False)
+                            found = True
+                            break
+
+                if found is False:
+                    error_list.append([fsym, 999])
+            
+
+        # if the request response indicates failure, add the fsym to the error list
+        else:
+            error_list.append([fsym, status])
+
+    print('done')
+    print('error count:', len(error_list))
+    return error_list
 
 ticker_list =  [
       "AAPL-US",

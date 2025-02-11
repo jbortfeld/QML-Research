@@ -38,6 +38,9 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                      'blank': {'name': '', 'type': 'boolean', 'category': 'blank'},
                      
    
+                    # SIZE
+                    'ff_assets_in_usd': {'name': 'Assets in USD', 'type': 'numeric', 'category': 'size'},
+
                     # LEVERAGE
                      'net_debt_to_ebitda': {'name': 'Net Debt to EBITDA', 'type': 'numeric', 'category': 'leverage'},
                      'net_debt_to_debt_plus_equity': {'name': 'Net Debt to Debt plus Equity', 'type': 'numeric', 'category': 'leverage'},
@@ -134,6 +137,10 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                      'ebitda_vol': {'name': 'EBITDA Volatility', 'type': 'numeric', 'category': 'volatility'},
                      'ebit_vol': {'name': 'EBIT Volatility', 'type': 'numeric', 'category': 'volatility'},
 
+                     # INTERACTION TERMS
+                     'size_x_leverage': {'name': 'Size x Leverage', 'type': 'numeric', 'category': 'interaction'},
+                     'size_x_profitability': {'name': 'Size x Profitability', 'type': 'numeric', 'category': 'interaction'},
+
                      
                      }
 
@@ -153,14 +160,20 @@ main_ratios_list = ['net_debt_to_ebitda', 'total_debt_to_ebitda', 'total_equity_
 
 # build lists of each metric type
 bs_metrics_list = []
+size_ratio_list = []
 leverage_ratio_list = []
 coverage_ratio_list = []
 profitability_ratio_list = []
 liquidity_ratio_list = []
 volatility_ratio_list = []
-ratio_dict = {c: [] for c in ['leverage', 'coverage', 'profitability', 'liquidity', 'volatility']}
+interaction_ratio_list = []
+ratio_dict = {c: [] for c in ['size', 'leverage', 'coverage', 'profitability', 'liquidity', 'volatility', 'interaction']}
 
 for m in display_name_dict.keys():
+
+    if display_name_dict[m]['category'] == 'size':
+        size_ratio_list.append(m)
+        ratio_dict['size'].append(m)
 
     if display_name_dict[m]['category'] == 'balance_sheet':
         bs_metrics_list.append(m)
@@ -185,4 +198,8 @@ for m in display_name_dict.keys():
         volatility_ratio_list.append(m)
         ratio_dict['volatility'].append(m)
 
-all_ratios_list = leverage_ratio_list + coverage_ratio_list + profitability_ratio_list + liquidity_ratio_list + volatility_ratio_list
+    if display_name_dict[m]['category'] == 'interaction':
+        interaction_ratio_list.append(m)
+        ratio_dict['interaction'].append(m)
+
+all_ratios_list = size_ratio_list + leverage_ratio_list + coverage_ratio_list + profitability_ratio_list + liquidity_ratio_list + volatility_ratio_list + interaction_ratio_list
