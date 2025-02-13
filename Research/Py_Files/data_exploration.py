@@ -5,6 +5,10 @@ import time
 import tqdm
 import scipy.stats
 import datetime
+import sklearn
+import statsmodels.api as sm
+from Py_Files import analytics
+from Py_Files import metric_inventory
 
 
 def quantile_analysis_by_default_class(data:pd.DataFrame, metric:str, sector_groupby:str):
@@ -320,3 +324,128 @@ def build_default_diagnostics(data:pd.DataFrame):
         
 
     return df
+
+def model_df_prep(data, metric_list,test_split_date):
+    
+    df = data.copy()
+
+    # in/out of sample split
+    if test_split_date is not None:
+        pct_df= df[df['fiscal_end_date'] < pd.to_datetime(test_split_date)].copy()
+    else:
+        pct_df = df.copy()
+
+    # for the dataset we will use to construct percentiles,remove rows with any missing values across all metrics
+    mask = pct_df[metric_list].isna().any(axis=1)
+    pct_df = pct_df[~mask]
+
+    # remove rows with any infinite values
+    for x in metric_list:
+        pct_df = pct_df[pct_df[x] != np.inf]
+        pct_df = pct_df[pct_df[x] != -np.inf]
+    
+    pct_vars = []
+
+    # Apply percentile bins after splitting test/train dfs
+    for x in metric_list:
+        this_boundaries = analytics.calculate_percentile_bins(pct_df, column=x, num_bins=1_000)
+        cutpoints_dict = {}
+        cutpoints_dict[x] = this_boundaries
+        try:
+            df[f'{x}_pct'] = analytics.assign_to_bins(df, column=x, boundaries=this_boundaries)
+            mask = df[x].isnull()
+            df.loc[mask, f'{x}_pct'] = np.NaN
+            pct_vars.append(x)
+        except:
+            print(f'{x} failed')
+            pass
+    pct_vars_dict = {f'{i}_pct':{'category': metric_inventory.display_name_dict[i]['category']} for i in pct_vars}
+
+    # drop rows with any missing values across all metrics
+    mask = df[metric_list].isna().any(axis=1)
+    df = df[~mask]
+
+    return df, pct_vars_dict
+
+def univariate_reg(df, var_list:list, horizon:int, pct:bool, test_split_date:str, verbose:bool=True):
+
+    results_list = []
+    if verbose:
+        print(f'Running univariate regressions for {horizon}Y horizon')
+
+    for var in tqdm.tqdm(var_list):
+
+        # extract the category for this variable (ie leverage, profitability, coverage, etc)
+        category = metric_inventory.display_name_dict[var]['category']
+
+        # remove rows with any missing values for the variable
+        temp_df = df[df[var].notnull()][['fsym_id', 'fiscal_end_date', f'default_{horizon}', var, f'{var}_pct' ]].copy()
+        temp_df = temp_df[temp_df[var] != np.inf]
+        temp_df = temp_df[temp_df[var] != -np.inf]
+        temp_df['constant'] = 1
+
+        # if not usinng percentile form, apply a simple winsorization to control outliers
+        if pct == 'No':
+            lower, upper = temp_df[var].quantile([0.01, 0.99])
+            temp_df[var] = temp_df[var].clip(lower=lower, upper=upper)
+
+        # if using percentile form, use the transformed variable
+        var_form = f'{var}_pct' if pct == 'Yes' else var
+
+        # Create train/test dfs
+        if test_split_date is not None:
+            df_test = temp_df[temp_df['fiscal_end_date'] > pd.to_datetime(test_split_date)].copy()
+            df_test = df_test[df_test[f'default_{horizon}'] != -1].copy()
+            df_test = df_test[df_test[var_form].notnull()].copy()
+            df_test = df_test[df_test[var_form] != np.inf]
+            df_test = df_test[df_test[var_form] != -np.inf]
+
+            df_train = temp_df[temp_df['fiscal_end_date'] <= pd.to_datetime(test_split_date)].copy()
+            df_train = df_train[df_train[var_form].notnull()].copy()
+            df_train = df_train[df_train[var_form] != np.inf]
+            df_train = df_train[df_train[var_form] != -np.inf]
+        else:
+            df_test = temp_df.copy()
+            df_test = df_test[df_test[f'default_{horizon}'] != -1].copy()
+            df_test = df_test[df_test[var_form].notnull()].copy()
+            df_test = df_test[df_test[var_form] != np.inf]
+            df_test = df_test[df_test[var_form] != -np.inf]
+
+            df_train = temp_df.copy()
+            df_train = df_train[df_train[var_form].notnull()].copy()
+            df_train = df_train[df_train[var_form] != np.inf]
+            df_train = df_train[df_train[var_form] != -np.inf]
+        
+        # Drop observations too close to default event
+        df_train = df_train[df_train[f'default_{horizon}'] != -1].copy()
+
+        # logit regression
+        y = df_train[f'default_{horizon}']
+        X = df_train[[var_form, 'constant']]
+
+        model = sm.Logit(y, X)
+        result = model.fit(disp=0)
+
+        # Calculate in-sample AUROC
+        predictions = result.predict(X)
+        fpr, tpr, thresholds = sklearn.metrics.roc_curve(y, predictions)
+        roc_auc = sklearn.metrics.auc(fpr, tpr)
+        p_value = result.pvalues[var_form]
+        coeff = result.params[var_form]
+
+        # Calculate out_of-sample AUROC
+        predictions_o = result.predict(df_test[[var_form, 'constant']])
+        fpr_o, tpr_o, thresholds_o = sklearn.metrics.roc_curve(df_test[f'default_{horizon}'], predictions_o)
+        roc_auc_o = sklearn.metrics.auc(fpr_o, tpr_o)
+        
+        results_list.append({
+            'Variable': var,
+            'Category': category,
+            'Coefficient': coeff,
+            'P-value': p_value,
+            'AUROC - Train': roc_auc,
+            'AUROC - Test': roc_auc_o
+        })
+    results_df = pd.DataFrame(results_list)
+
+    return results_df

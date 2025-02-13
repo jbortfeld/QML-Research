@@ -31,11 +31,11 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
 
                      'fiscal_end_date': {'name': 'Date', 'type': 'date', 'category': 'date'},
 
-                     'is_placeholder': {'name': 'Income Statement', 'type': 'boolean', 'category': 'placeholder'},
-                     'assets_placeholder': {'name': 'Balance Sheet (Assets)', 'type': 'boolean', 'category': 'placeholder'},
-                     'liabs_placeholder': {'name': 'Balance Sheet (Liabilities)', 'type': 'boolean', 'category': 'placeholder'},
-                     'cf_placeholder': {'name': 'Cash Flow Statement', 'type': 'boolean', 'category': 'placeholder'},
-                     'blank': {'name': '', 'type': 'boolean', 'category': 'blank'},
+                    #  'is_placeholder': {'name': 'Income Statement', 'type': 'boolean', 'category': 'placeholder'},
+                    #  'assets_placeholder': {'name': 'Balance Sheet (Assets)', 'type': 'boolean', 'category': 'placeholder'},
+                    #  'liabs_placeholder': {'name': 'Balance Sheet (Liabilities)', 'type': 'boolean', 'category': 'placeholder'},
+                    #  'cf_placeholder': {'name': 'Cash Flow Statement', 'type': 'boolean', 'category': 'placeholder'},
+                    #  'blank': {'name': '', 'type': 'boolean', 'category': 'blank'},
                      
    
                     # SIZE
@@ -138,8 +138,8 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                      'ebit_vol': {'name': 'EBIT Volatility', 'type': 'numeric', 'category': 'volatility'},
 
                      # INTERACTION TERMS
-                     'size_x_leverage': {'name': 'Size x Leverage', 'type': 'numeric', 'category': 'interaction'},
-                     'size_x_profitability': {'name': 'Size x Profitability', 'type': 'numeric', 'category': 'interaction'},
+                    #  'size_x_leverage': {'name': 'Size x Leverage', 'type': 'numeric', 'category': 'interaction'},
+                    #  'size_x_profitability': {'name': 'Size x Profitability', 'type': 'numeric', 'category': 'interaction'},
 
                      
                      }

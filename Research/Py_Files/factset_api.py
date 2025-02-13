@@ -53,6 +53,18 @@ def load_universe_dict(data:pd.DataFrame):
         temp = temp['fsym_id'].unique()
         universe_dict[this_threshold[0]] = temp
 
+    # special $100M universe for US and non-financial
+    for this_threshold in [('us_nonfin_1b', 1_000), ('us_nonfin_500m', 500), ('us_nonfin_100m', 100)]:
+        temp = df[df['max_assets_in_usd'] > this_threshold[1]].copy()
+        temp = temp[temp['exchange_country'].isin(['UNITED STATES'])]
+        mask1 = temp['factset_econ_sector'] == 'Financials'
+        mask2 = temp['factset_industry'] != 'Real Estate Development'
+        temp = temp[~(mask1 & mask2)]
+        temp = temp[temp['fsym_id'] != '@NA']
+        temp = temp['fsym_id'].unique()
+        universe_dict[this_threshold[0]] = temp
+
+
     print('-- universe counts:')
     for k,v in universe_dict.items():
         print('-- ',k,':', len(v))
@@ -133,6 +145,8 @@ def batch_fundamental_download(fsym_list:list,
                       'semi_annual': ['SEMI', 15]}
 
     for this_periodicity in periodicity_list:
+
+        print('working on periodicity:', this_periodicity)
 
         # 0. create the output folder if it doesn't exist
         try:
@@ -216,13 +230,15 @@ def batch_fundamental_download(fsym_list:list,
 
                 print('-- error count after retrying:', len(error_list2))
                 print ('-- done')
-                return error_list2
+                
 
 
         else:
             print('--  No errors after second pass')
             print('-- done')
-            return []
+
+
+        print()
 
 
                 

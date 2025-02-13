@@ -11,10 +11,6 @@ fundamental_fields = [
     'ff_debt_lt', 'ff_debt_st', 'ff_pens_liabs_unfunded', 'ff_liabs_curr', 'ff_liabs',
     'ff_com_eq', 'ff_pfd_stk', 'ff_min_int_accum', 'FF_COM_SHS_OUT',
     'ff_eq_tot',
-
-
-    # point-in-time vars
-    # market cap
  
     ]
 

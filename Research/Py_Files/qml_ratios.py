@@ -24,17 +24,17 @@ def consolidate_local_data(folder_path:str):
     df = pd.concat(collection)
     return df, error_list
 
-def consolidate_selected_files(file_list):
+def consolidate_selected_files(fsym_list:list, folder_path:str):
     collection = []
     error_list = []
 
-    for file in tqdm.tqdm(file_list):
+    for fsym in tqdm.tqdm(fsym_list):
 
         try:
-            df = pd.read_csv(file)
-            collection_annual.append(df)
+            df = pd.read_csv(folder_path + f'{fsym}.csv')
+            collection.append(df)
         except:
-            error_list.append(file)
+            error_list.append(fsym)
 
     df = pd.concat(collection)
     return df, error_list
@@ -239,7 +239,7 @@ def format_semi_annual_data(data:pd.DataFrame, flow_vars:list, stock_vars:list, 
 
     return df
 
-def format_assets_in_usd_data(data_annual:pd.DataFrame, data_semi_annual:pd.DataFrame, cleanup:bool=True):
+def format_assets_in_usd_data(data_annual:pd.DataFrame, data_semi_annual:pd.DataFrame, data_quarterly:pd.DataFrame, cleanup:bool=True):
 
     mask = data_annual['currency'] != 'USD'
     assert mask.sum() == 0, 'annual data contains non-USD currencies'
@@ -251,12 +251,18 @@ def format_assets_in_usd_data(data_annual:pd.DataFrame, data_semi_annual:pd.Data
     df2 = data_semi_annual[['fsym_id', 'fiscal_end_date', 'ff_assets']]
     df2 = df2.rename(columns={'ff_assets': 'ff_assets_in_usd_saf'})
 
+    mask = data_quarterly['currency'] != 'USD'
+    assert mask.sum() == 0, 'quarterly data contains non-USD currencies'
+    df3 = data_quarterly[['fsym_id', 'fiscal_end_date', 'ff_assets']]
+    df3 = df3.rename(columns={'ff_assets': 'ff_assets_in_usd_qf'})
+
     df = df1.merge(df2, on=['fsym_id', 'fiscal_end_date'], how='outer')
+    df = df.merge(df3, on=['fsym_id', 'fiscal_end_date'], how='outer')
     df['fiscal_end_date'] = pd.to_datetime(df['fiscal_end_date'])
-    df['ff_assets_in_usd'] = df['ff_assets_in_usd_af'].fillna(df['ff_assets_in_usd_saf'])
+    df['ff_assets_in_usd'] = df['ff_assets_in_usd_af'].fillna(df['ff_assets_in_usd_saf']).fillna(df['ff_assets_in_usd_qf'])
 
     if cleanup:
-        df = df.drop(columns=['ff_assets_in_usd_af', 'ff_assets_in_usd_saf'], axis=1)
+        df = df.drop(columns=['ff_assets_in_usd_af', 'ff_assets_in_usd_saf', 'ff_assets_in_usd_qf'], axis=1)
 
     return df
 

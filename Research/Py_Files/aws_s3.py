@@ -37,7 +37,6 @@ def copy_file_to_s3(local_file_path:str=None,
     except:
         return False
 
-import boto3
 
 def list_s3_bucket_contents(bucket_name, prefix='', aws_access_key_id=None, aws_secret_access_key=None):
     """

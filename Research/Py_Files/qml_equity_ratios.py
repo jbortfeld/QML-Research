@@ -13,6 +13,41 @@ import statsmodels.api as sm
 from scipy.stats import norm
 from scipy.optimize import fsolve
 
+def build_benchmark_data():
+
+    '''
+    Build a dataframe of benchmark data for the SP500, STOXX and NIKKEI using the FMP API.
+    '''
+    # get benchmark data
+    df_sp500 = fmp.download_stock_returns(ticker='SP500', start_date='1990-01-01')
+    df_sp500['date'] = pd.to_datetime(df_sp500['date'])
+    df_sp500 = df_sp500[['date', 'total_return', 'adjClose']]
+    df_sp500.columns = ['date', 'benchmark_return', 'benchmark_price']
+    df_sp500['benchmark'] = 'SP500'
+
+    df_stoxx = fmp.download_stock_returns(ticker='STOXX', start_date='1990-01-01')
+    df_stoxx['date'] = pd.to_datetime(df_stoxx['date'])
+    df_stoxx = df_stoxx[['date', 'total_return', 'adjClose']]
+    df_stoxx.columns = ['date', 'benchmark_return', 'benchmark_price']
+    df_stoxx['benchmark'] = 'STOXX'
+
+    df_nikkei = fmp.download_stock_returns(ticker='NIKKEI', start_date='1990-01-01')
+    df_nikkei['date'] = pd.to_datetime(df_nikkei['date'])
+    df_nikkei = df_nikkei[['date', 'total_return', 'adjClose']]
+    df_nikkei.columns = ['date', 'benchmark_return', 'benchmark_price']
+    df_nikkei['benchmark'] = 'NIKKEI'
+
+    df_benchmarks = pd.concat([df_sp500, df_stoxx, df_nikkei])
+
+    for bench in df_benchmarks['benchmark'].unique():
+
+        if bench=='STOXX':
+            df_benchmarks[df_benchmarks['benchmark'] == bench].set_index('date')['benchmark_price'].plot(secondary_y=True)
+        else:
+            df_benchmarks[df_benchmarks['benchmark'] == bench].set_index('date')['benchmark_price'].plot()
+
+    return df_benchmarks
+
 
 def merge_equity_data(fsym_id:str='MH33D6-R',
                       input_dir:str='/Users/joeybortfeld/Documents/QML Solutions Data/factset_data/factset_equity/',
@@ -367,3 +402,108 @@ def merton_distance_to_default(market_cap, debt, equity_vol, risk_free_rate=0.03
     probability_of_default = norm.cdf(-distance_to_default)
 
     return distance_to_default, probability_of_default
+
+    # iterate over all applicable fsym_ids
+
+
+# build a dictionary with mappings from fsym_id to exchange country
+def build_fsym_to_country_dict(mapping_file:str='/Users/joeybortfeld/Documents/QML Solutions Data/universe_and_traits/qml_universe_ids.csv',
+                               country_to_region_dict:dict=None):
+    temp = pd.read_csv(mapping_file)
+
+    fsym_to_country_dict = temp.set_index('fsym_id')['exchange_country'].to_dict()
+    return fsym_to_country_dict
+
+# build a dictionary with mappings from exchange country to region
+def build_country_to_region_dict(mapping_file:str='/Users/joeybortfeld/Documents/QML Solutions Data/universe_and_traits/country_to_region_mapping.csv'):
+    temp = pd.read_csv(mapping_file)
+    country_to_region_dict = temp.set_index('exchange_country')['region'].to_dict()
+    return country_to_region_dict
+
+def build_region_to_benchmark_dict():
+
+    region_to_benchmark_dict = {
+        'North America': 'SP500',
+        'Europe': 'STOXX',
+        'Japan': 'NIKKEI',
+        'Asia ex-Japan': 'None',
+        'Africa': 'None', 
+        'Middle East': 'None',
+        'South America': 'None',
+        '@NA': 'None',
+        np.nan: 'None'
+    }
+
+    return region_to_benchmark_dict
+
+def build_equity_ratios(fsym_list:list,
+                        data_benchmarks:pd.DataFrame,
+                        fsym_to_country_dict:dict,
+                        country_to_region_dict:dict,
+                        region_to_benchmark_dict:dict,
+                        output_dir:str='/Users/joeybortfeld/Documents/QML Solutions Data/factset_data/factset_equity/processed/'):
+
+    for this_fsym in tqdm.tqdm(fsym_list):
+
+        # collect the equity data and consolidate from various sources
+        temp = merge_equity_data(fsym_id=this_fsym)
+
+        temp['fsym_id'] = this_fsym
+        this_country = fsym_to_country_dict[this_fsym]
+        this_region = country_to_region_dict[this_country]
+        this_benchmark = region_to_benchmark_dict[this_region]
+        
+        # skip if fsym_id is from a region that we do not map to a benchmark
+        if this_benchmark == 'None':
+            continue
+
+        # combine the equity data with the benchmark data
+        temp = combine_benchmark_data(temp, data_benchmarks, benchmark=this_benchmark)
+
+        # calculate equity metrics
+        temp1a = calc_capm(temp, trailing_periods_list=[182,365], frequency='ME', outlier_drops=4, downside_only=False, exponential_weighting=(False, 0.99))
+        temp1b = calc_capm(temp, trailing_periods_list=[182,365], frequency='ME', outlier_drops=4, downside_only=True, exponential_weighting=(False, 0.99))
+        temp2 = calc_rolling_returns(temp)
+        temp3 = calc_drawdown(temp)
+        temp4 = calc_downside_volatility(temp)
+        temp5 = calc_ulcer_index(temp)
+
+        # combine the equity metrics
+        df = temp[['fsym_id', 'date', 'market_cap', 'price', 'volume', ]].merge(temp1a, on=['date'], how='outer')
+        df = df.merge(temp1b, on=['date'], how='outer')
+        df = df.merge(temp2, on=['date',], how='outer')
+        df = df.merge(temp3, on=['date',], how='outer')
+        df = df.merge(temp4, on=['date',], how='outer')
+        df = df.merge(temp5, on=['date',], how='outer')
+
+        # fillin missing 
+        # - for the monthly calculations (CAPM, etc) we assume exact month end dates (10/31)
+        # - but for the daily data (price, market cap, returns, etc) the last trading date may not be true month end (10/29)
+        for c in ['market_cap', 'price', 'volume', 'return_1', 'return_2', 'return_3', 'return_6', 'return_12']:
+            df[c] = df[c].ffill(limit=10)
+        df['fsym_id'] = this_fsym
+
+        # drop obs out of bounds of the available data date range
+        min_date = df[df['price'].notnull()]['date'].min()
+        max_date = df[df['price'].notnull()]['date'].max()
+
+        # reduce to monthly
+        df['year'] = pd.to_datetime(df['date']).dt.year
+        df['month'] = pd.to_datetime(df['date']).dt.month
+        df['max_date'] = df.groupby(['year', 'month'])['date'].transform('max')
+        df = df[df['date'] == df['max_date']]
+        df = df.drop(columns=['year', 'month', 'max_date'])
+
+        df = df[df['date'] >= min_date]
+        df = df[df['date'] <= max_date]
+
+        df.to_csv(output_dir + f'{this_fsym}.csv', index=False)
+        collection.append(df)
+
+    return None
+    
+
+
+
+
+
