@@ -54,7 +54,7 @@ def load_universe_dict(data:pd.DataFrame):
         universe_dict[this_threshold[0]] = temp
 
     # special $100M universe for US and non-financial
-    for this_threshold in [('us_nonfin_1b', 1_000), ('us_nonfin_500m', 500), ('us_nonfin_100m', 100)]:
+    for this_threshold in [('us_nonfin_1b', 1_000), ('us_nonfin_500m', 500), ('us_nonfin_100m', 100), ('us_nonfin_10m', 10), ('us_nonfin_1m', 1)]:
         temp = df[df['max_assets_in_usd'] > this_threshold[1]].copy()
         temp = temp[temp['exchange_country'].isin(['UNITED STATES'])]
         mask1 = temp['factset_econ_sector'] == 'Financials'
@@ -602,7 +602,7 @@ def batch_get_shares_outanding(fsym_list:list=['MH33D6-R'],
                 # try to increment the start date forward by one month at a time
                 # (a start date prior to the first available data will return a dataframe with no column for totalOutstanding)
                 found = False
-                for i in range(12):
+                for i in range(3,4):
 
                     # increment the start date by n months
                     _start_date = pd.to_datetime(start_date_dict[fsym]) + pd.DateOffset(months=i)

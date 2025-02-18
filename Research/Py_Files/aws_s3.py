@@ -61,3 +61,35 @@ def list_s3_bucket_contents(bucket_name, prefix='', aws_access_key_id=None, aws_
                 file_keys.append(obj['Key'])
     
     return file_keys
+
+
+def delete_s3_contents(bucket_name, prefix="",aws_access_key_id:str=None, 
+                         aws_secret_access_key:str=None):
+    """
+    Deletes all objects in an S3 bucket or within a specified prefix (folder).
+    
+    :param bucket_name: Name of the S3 bucket.
+    :param prefix: (Optional) Prefix (folder path) to delete objects within.
+    """
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )   
+
+    # List objects in the specified bucket and prefix
+    response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+
+    if 'Contents' not in response:
+        print("No objects found.")
+        return
+    
+
+    # Extract object keys
+    objects_to_delete = [{'Key': obj['Key']} for obj in response['Contents']]
+    
+
+    # Delete objects
+    s3.delete_objects(Bucket=bucket_name, Delete={'Objects': objects_to_delete})
+
+    print(f"Deleted {len(objects_to_delete)} objects from {bucket_name}/{prefix}")

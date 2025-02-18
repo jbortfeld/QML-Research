@@ -57,7 +57,8 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                      'net_debt_plus_unfunded_pension_to_debt_plus_common_equity': {'name': 'Net Debt plus Unfunded Pensions to Debt plus Common Equity', 'type': 'numeric', 'category': 'leverage'},
                      'net_debt_plus_unfunded_pension_to_assets': {'name': 'Net Debt plus Unfunded Pensions to Assets', 'type': 'numeric', 'category': 'leverage'},
                      
-                     'total_equity_to_ebitda': {'name': 'Total Equity to EBITDA', 'type': 'numeric', 'category': 'leverage'},
+                     'ebitda_to_total_debt': {'name': 'EBITDA to Total Debt', 'type': 'numeric', 'category': 'leverage'},
+                     
                      'total_equity_to_debt_plus_equity': {'name': 'Total Equity to Debt plus Equity', 'type': 'numeric', 'category': 'leverage'},
                      'total_equity_to_debt_plus_common_equity': {'name': 'Total Equity to Debt plus Common Equity', 'type': 'numeric', 'category': 'leverage'},
                      'total_equity_to_assets': {'name': 'Total Equity to Assets', 'type': 'numeric', 'category': 'leverage'},
@@ -65,7 +66,6 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                      #'COVERAGE': 'Coverage',
                      'ebitda_to_interest_expense': {'name': 'EBITDA to Interest Expense', 'type': 'numeric', 'category': 'coverage'},
                      'ebitda_to_dividends_ltm_floor': {'name': 'EBITDA to Dividends LTM Floor', 'type': 'numeric', 'category': 'coverage'},
-                     'ebitda_to_total_debt': {'name': 'EBITDA to Total Debt', 'type': 'numeric', 'category': 'coverage'},
                      'ebitda_to_net_debt': {'name': 'EBITDA to Net Debt', 'type': 'numeric', 'category': 'coverage'},
                      
                      'ffo_to_interest_expense': {'name': 'FFO to Interest Expense', 'type': 'numeric', 'category': 'coverage'},
@@ -94,6 +94,7 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                      'ebitda_minus_capex_interest_to_net_debt': {'name': 'EBITDA minus CapEx to Net Debt', 'type': 'numeric', 'category': 'coverage'},
                      
                      #'PROFITABILITY': 'Profitability',
+                     'total_equity_to_ebitda': {'name': 'Total Equity to EBITDA', 'type': 'numeric', 'category': 'profitability'},
                      'ebit_to_sales': {'name': 'EBIT to Sales', 'type': 'numeric', 'category': 'profitability'},
                      'ebit_to_total_equity': {'name': 'EBIT to Total Equity', 'type': 'numeric', 'category': 'profitability'},
                      'ebit_to_assets': {'name': 'EBIT to Assets', 'type': 'numeric', 'category': 'profitability'},
@@ -141,6 +142,34 @@ display_name_dict = {'ff_sales_ltm': {'name': 'Sales', 'type': 'numeric', 'categ
                     #  'size_x_leverage': {'name': 'Size x Leverage', 'type': 'numeric', 'category': 'interaction'},
                     #  'size_x_profitability': {'name': 'Size x Profitability', 'type': 'numeric', 'category': 'interaction'},
 
+                    # MARKET 
+                    'market_leverage': {'name': 'Market Leverage', 'type': 'numeric', 'category': 'equity'},
+
+                    'capm_idio_vol_182': {'name': 'CAPM Idio Vol 182', 'type': 'numeric', 'category': 'equity'},
+                    'capm_idio_vol_365': {'name': 'CAPM Idio Vol 365', 'type': 'numeric', 'category': 'equity'},
+                    'capm_alpha_182': {'name': 'CAPM Alpha 182', 'type': 'numeric', 'category': 'equity'},
+                    'capm_alpha_365': {'name': 'CAPM Alpha 365', 'type': 'numeric', 'category': 'equity'},
+                    'capm_beta_182': {'name': 'CAPM Beta 182', 'type': 'numeric', 'category': 'equity'},
+                    'capm_beta_365': {'name': 'CAPM Beta 365', 'type': 'numeric', 'category': 'equity'},
+                    'capm_return_vol_182': {'name': 'CAPM Return Vol 182', 'type': 'numeric', 'category': 'equity'},
+                    'capm_return_vol_365': {'name': 'CAPM Return Vol 365', 'type': 'numeric', 'category': 'equity'},
+                    
+                    'capm_idio_vol_down_182': {'name': 'Downside CAPM Idio Vol 182', 'type': 'numeric', 'category': 'equity'},
+                    'capm_idio_vol_down_365': {'name': 'Downside CAPM Idio Vol 365', 'type': 'numeric', 'category': 'equity'},
+                    'capm_alpha_down_182': {'name': 'Downside CAPM Alpha 182', 'type': 'numeric', 'category': 'equity'},
+                    'capm_alpha_down_365': {'name': 'Downside CAPM Alpha 365', 'type': 'numeric', 'category': 'equity'},
+                    'capm_beta_down_182': {'name': 'Downside CAPM Beta 182', 'type': 'numeric', 'category': 'equity'},
+                    'capm_beta_down_365': {'name': 'Downside CAPM Beta 365', 'type': 'numeric', 'category': 'equity'},
+
+                    'return_3': {'name': 'Return 3M', 'type': 'numeric', 'category': 'equity'},
+                    'return_6': {'name': 'Return 6M', 'type': 'numeric', 'category': 'equity'},
+                    'return_12': {'name': 'Return 12M', 'type': 'numeric', 'category': 'equity'},
+
+                    'drawdown_128': {'name': 'Drawdown 128D', 'type': 'numeric', 'category': 'equity'},
+                    'drawdown_252': {'name': 'Drawdown 252D', 'type': 'numeric', 'category': 'equity'},
+
+                    'downside_vol_128': {'name': 'Downside Vol 128D', 'type': 'numeric', 'category': 'equity'},
+                    'downside_vol_252': {'name': 'Downside Vol 252D', 'type': 'numeric', 'category': 'equity'},
                      
                      }
 
@@ -167,7 +196,8 @@ profitability_ratio_list = []
 liquidity_ratio_list = []
 volatility_ratio_list = []
 interaction_ratio_list = []
-ratio_dict = {c: [] for c in ['size', 'leverage', 'coverage', 'profitability', 'liquidity', 'volatility', 'interaction']}
+equity_ratio_list = []  
+ratio_dict = {c: [] for c in ['size', 'leverage', 'coverage', 'profitability', 'liquidity', 'volatility', 'interaction', 'equity']}
 
 for m in display_name_dict.keys():
 
@@ -202,4 +232,8 @@ for m in display_name_dict.keys():
         interaction_ratio_list.append(m)
         ratio_dict['interaction'].append(m)
 
-all_ratios_list = size_ratio_list + leverage_ratio_list + coverage_ratio_list + profitability_ratio_list + liquidity_ratio_list + volatility_ratio_list + interaction_ratio_list
+    if display_name_dict[m]['category'] == 'equity':
+        equity_ratio_list.append(m)
+        ratio_dict['equity'].append(m)
+
+all_ratios_list = size_ratio_list + leverage_ratio_list + coverage_ratio_list + profitability_ratio_list + liquidity_ratio_list + volatility_ratio_list + interaction_ratio_list + equity_ratio_list
